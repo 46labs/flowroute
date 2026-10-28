@@ -1,0 +1,23 @@
+port: 8080
+base_url: https://api.flowroute.com
+access_key: test_access_key
+secret_key: test_secret_key
+callback: http://receiver.example/flowroute/sms
+dlr_callback: http://receiver.example/flowroute/dlr
+numbers:
+  - number: "+12065550100"
+  - number: "+18885550100"
+    callback: http://receiver.example/flowroute/tollfree
+default_outcome: delivered
+outcomes:
+  "+14035550199": undelivered
+  "+14035550198": buffered
+  "+14035550197": none
+dlr_delay: 1s
+retry_interval: 30s
+attempts: 4
+sms_per_second: 5
+mms_per_second: 1
+base_rate_nanodollars: 3500000
+surcharge_nanodollars: 0
+inbound_rate_nanodollars: 4000000
