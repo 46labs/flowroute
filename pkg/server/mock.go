@@ -14,10 +14,13 @@ type inboundRequest struct {
 	To    string  `json:"to"`
 	Body  string  `json:"body"`
 	Media []Media `json:"media"`
+	// Callback overrides the number's and the account's callback.
+	Callback string `json:"callback"`
 }
 
 // handleInbound simulates a message from a handset to a number on the
-// account, posting it to the number's callback with Flowroute's retries.
+// account, posting it to the request's, the number's or the account's
+// callback with Flowroute's retries.
 func (s *Server) handleInbound(w http.ResponseWriter, r *http.Request) {
 	var req inboundRequest
 	if err := decode(r, &req); err != nil {
@@ -33,7 +36,11 @@ func (s *Server) handleInbound(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "Not Found", "to is not a number on the account")
 		return
 	}
-	callback := firstNonEmpty(number.Callback, s.cfg.Callback)
+	if u, err := url.Parse(req.Callback); req.Callback != "" && (err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "") {
+		writeError(w, http.StatusBadRequest, "Bad Request", "callback must be an http or https URL")
+		return
+	}
+	callback := firstNonEmpty(req.Callback, number.Callback, s.cfg.Callback)
 	if callback == "" {
 		writeError(w, http.StatusConflict, "Conflict", "no callback configured for "+req.To)
 		return

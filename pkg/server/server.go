@@ -27,9 +27,11 @@ type Server struct {
 	ctx     context.Context
 	client  *http.Client
 	numbers map[string]config.Number
-	sms     *rate.Limiter
-	mms     *rate.Limiter
-	wg      sync.WaitGroup
+	// outcomes are keyed by digits, as Flowroute sends to without a "+".
+	outcomes map[string]string
+	sms      *rate.Limiter
+	mms      *rate.Limiter
+	wg       sync.WaitGroup
 
 	mu       sync.Mutex
 	messages map[string]*Message
@@ -41,6 +43,10 @@ func New(ctx context.Context, cfg *config.Config) *Server {
 	numbers := make(map[string]config.Number, len(cfg.Numbers))
 	for _, n := range cfg.Numbers {
 		numbers[digits(n.Number)] = n
+	}
+	outcomes := make(map[string]string, len(cfg.Outcomes))
+	for number, o := range cfg.Outcomes {
+		outcomes[digits(number)] = o
 	}
 	return &Server{
 		cfg: cfg,
@@ -54,6 +60,7 @@ func New(ctx context.Context, cfg *config.Config) *Server {
 			},
 		},
 		numbers:  numbers,
+		outcomes: outcomes,
 		sms:      limiter(cfg.SMSPerSecond),
 		mms:      limiter(cfg.MMSPerSecond),
 		messages: make(map[string]*Message),
@@ -244,10 +251,7 @@ func (s *Server) handleLookup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) outcome(to string) string {
-	if o, ok := s.cfg.Outcomes[to]; ok {
-		return o
-	}
-	if o, ok := s.cfg.Outcomes[digits(to)]; ok {
+	if o, ok := s.outcomes[digits(to)]; ok {
 		return o
 	}
 	return s.cfg.DefaultOutcome

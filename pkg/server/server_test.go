@@ -204,7 +204,8 @@ func TestReceipts(t *testing.T) {
 		t.Run(tt.outcome, func(t *testing.T) {
 			rc := newReceiver(t)
 			s, hs := newServer(t, func(c *config.Config) { c.Outcomes[handset] = tt.outcome })
-			resp, body := do(t, http.MethodPost, hs.URL+"/v2.2/messages", "ak", "sk", contentType, sendBody(handset, owned, "hi", rc.srv.URL))
+			// Flowroute numbers carry no "+"; the outcome is configured with one.
+			resp, body := do(t, http.MethodPost, hs.URL+"/v2.2/messages", "ak", "sk", contentType, sendBody(digits(handset), owned, "hi", rc.srv.URL))
 			if resp.StatusCode != http.StatusAccepted {
 				t.Fatalf("status %d: %s", resp.StatusCode, body)
 			}
@@ -320,6 +321,20 @@ func TestInboundPayload(t *testing.T) {
 	}
 }
 
+func TestInboundRequestCallback(t *testing.T) {
+	account, request := newReceiver(t), newReceiver(t)
+	_, hs := newServer(t, func(c *config.Config) { c.Callback = account.srv.URL })
+	resp, body := do(t, http.MethodPost, hs.URL+"/mock/inbound", "", "", "application/json",
+		`{"from":"`+handset+`","to":"`+owned+`","body":"hi","callback":"`+request.srv.URL+`"}`)
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("status %d: %s", resp.StatusCode, body)
+	}
+	got := request.next(t)
+	if attrs := got["data"].(map[string]any)["attributes"].(map[string]any); attrs["body"] != "hi" {
+		t.Errorf("body = %v, want hi", attrs["body"])
+	}
+}
+
 func TestInboundRejects(t *testing.T) {
 	_, hs := newServer(t, nil)
 	tests := []struct {
@@ -330,6 +345,7 @@ func TestInboundRejects(t *testing.T) {
 		{"not on account", `{"from":"` + handset + `","to":"+12065550101","body":"x"}`, http.StatusNotFound},
 		{"no callback", `{"from":"` + handset + `","to":"` + owned + `","body":"x"}`, http.StatusConflict},
 		{"bad number", `{"from":"abc","to":"` + owned + `","body":"x"}`, http.StatusBadRequest},
+		{"bad callback", `{"from":"` + handset + `","to":"` + owned + `","body":"x","callback":"ftp://x"}`, http.StatusBadRequest},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
