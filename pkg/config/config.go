@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -102,15 +103,23 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// Validate rejects outcomes the mock cannot produce.
+// Validate rejects outcomes the mock cannot produce, and two spellings of one
+// number with different outcomes.
 func (c *Config) Validate() error {
 	if !ValidOutcome(c.DefaultOutcome) {
 		return fmt.Errorf("default_outcome %q: want delivered, buffered, undelivered or none", c.DefaultOutcome)
 	}
+	seen := make(map[string]string, len(c.Outcomes))
 	for number, outcome := range c.Outcomes {
 		if !ValidOutcome(outcome) {
 			return fmt.Errorf("outcome for %s %q: want delivered, buffered, undelivered or none", number, outcome)
 		}
+		// Numbers match with or without "+", so both spellings must agree.
+		key := strings.TrimPrefix(number, "+")
+		if o, ok := seen[key]; ok && o != outcome {
+			return fmt.Errorf("outcomes for %s disagree: %q and %q", number, o, outcome)
+		}
+		seen[key] = outcome
 	}
 	if c.Attempts < 1 {
 		return fmt.Errorf("attempts %d: want at least 1", c.Attempts)

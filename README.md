@@ -43,7 +43,7 @@ apart (Flowroute: 4 attempts, 30 s).
 
 | Request | Behaviour |
 |---|---|
-| `POST /mock/inbound` | `{"from","to","body","media":[{"url","mime_type","file_size","file_name"}]}`. Posts a Flowroute inbound message to the number's callback, or the account callback. Returns `202` `{"id"}`. |
+| `POST /mock/inbound` | `{"from","to","body","media":[{"url","mime_type","file_size","file_name"}],"callback"}`. Posts a Flowroute inbound message to `callback`, the number's callback, or the account callback, first set wins. Returns `202` `{"id"}`. |
 | `GET /mock/messages` | Every message with its receipts and callback attempts. |
 | `GET /mock/messages/{id}` | One message. |
 | `DELETE /mock/messages` | Clear messages. |
